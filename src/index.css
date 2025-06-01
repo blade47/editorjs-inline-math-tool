@@ -1,75 +1,74 @@
-.latex-tool-button {
-    width: 36px;
-    padding-left: 15px;
-    background-color: transparent;
-    background-image: url('LaTeX_logo.svg');
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-latex { 
-  cursor: pointer;
-}
-
-.latex-modal-overlay {
-  position: fixed;
-  display: flex;
-  z-index: 5000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  overflow: auto;
-}
-
-.latex-modal-content {
-  display: flex;
-  flex-direction: column;
-  background-color: #fff;
-  color: #000;
-  text-align: center;
-  border-radius: 20px;
-  max-width: 80%;
-  max-height: 80%;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.latex-modal-content-textarea {
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-  margin-top: 4px;
-  box-sizing: border-box;
-  display: block;
-  margin-bottom: 40px;
-}
-
-.latex-modal-content-button {
-  padding: 14px;
-  font-size: 16px;
-  color: white;
-  align-self: center;
-  border: .1px solid grey;
-  width: auto;
-  border-radius: 5px;
-  height: 100%;
-  cursor: pointer;
-  background-color: #1F1646;
-}
-
-.latex-modal-content-button-close {
-  width: 30px;
-  font-size: 20px;
-  color: #c0c5cb;
-  align-self: flex-end;
+.inline-math-latex-tool-button {
+  width: 36px;
+  padding-left: 15px;
   background-color: transparent;
-  border: none;
-  margin-bottom: 10px;
+  background-image: url('LaTeX_logo.svg');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+latex {
   cursor: pointer;
+  position: relative;
+}
+
+.inline-math-equation-textarea-latex-tool {
+  width: 100%;
+  height: fit-content;
+  background-color: inherit;
+  margin-top: 10px;
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  resize: none;
+  color: #dd4a68;
+  field-sizing: content;
+}
+
+.inline-math-equation-textarea-latex-tool:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.inline-math-equation-overlay {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  top: calc(100% + 10px);
+  left: 0;
+  height: auto;
+  width: 400px;
+  min-width: 400px;
+  max-width: calc(-24px + 100vw);
+  padding: 2%;
+  background-color: #f7f7f5;
+  z-index: 1;
+  word-break: break-word;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.inline-math-button-wrapper {
+  padding: 10px;
+}
+
+.inline-math-done-button {
+  padding: 10px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: fit-content;
+  white-space: nowrap;
+}
+
+.inline-math-done-button-color {
+  background-color: #28a745;
+  color: white;
+}
+
+.inline-math-done-button:hover {
+  background-color: #218838;
 }
