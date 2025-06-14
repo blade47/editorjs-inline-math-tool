@@ -60,13 +60,16 @@ class InlineMathTool {
       active: this.api.styles.inlineToolButtonActive,
     };
 
+    this.updateAndRenderLatex = this.updateAndRenderLatex.bind(this);
+    this.renderEquationOverlay = this.renderEquationOverlay.bind(this);
+    this.removeEquationOverlay = this.removeEquationOverlay.bind(this);
     this.addEventListenersToAll();
   }
 
   render() {
     this.button = document.createElement('button');
     this.button.type = 'button';
-    this.button.classList.add('latex-tool-button');
+    this.button.classList.add('inline-math-latex-tool-button');
     this.button.classList.add(this.iconClasses.base);
 
     return this.button;
@@ -86,7 +89,7 @@ class InlineMathTool {
     } else if (latex.length == 0) {
       this.wrap(range);
     } else if (termWrapper) {
-      this.showModal(termWrapper);
+      this.renderEquationOverlay(termWrapper);
     }
   }
 
@@ -137,66 +140,95 @@ class InlineMathTool {
     }
   }
 
-  showModal(latex) {
-    // Check if a modal already exists
-    if (document.querySelector('.latex-modal')) {
-      return;
-    }
-    const modal = document.createElement('div');
-    modal.classList.add('latex-modal-overlay');
-
-    const content = document.createElement('div');
-    content.classList.add('latex-modal-content');
-
-    const closeButton = document.createElement('button');
-    closeButton.classList.add('latex-modal-content-button-close');
-    closeButton.textContent = '✖';
-    content.appendChild(closeButton);
-
-    const span = latex.querySelector('span.afl-inline-latex');
-    const textarea = document.createElement('textarea');
-    textarea.classList.add('latex-modal-content-textarea');
-    textarea.value = span.innerHTML || '';
-    textarea.rows = '5';
-    content.appendChild(textarea);
-
-    const saveButton = document.createElement('button');
-    saveButton.classList.add('latex-modal-content-button');
-    saveButton.textContent = 'Save';
-    content.appendChild(saveButton);
-
-    modal.appendChild(content);
-
-    saveButton.addEventListener('click', () => {
-      span.innerText = textarea.value;
-      const allSpans = latex.querySelectorAll('span');
-      allSpans.forEach((latexSpan) => {
-        if (!latexSpan.classList.contains(InlineMathTool.CSS)) {
-          latexSpan.remove();
-        }
-      });
-      const formulaElem = document.createElement('span');
-      formulaElem.innerText = textarea.value;
-
-      latex.appendChild(formulaElem);
-      this.renderFormula(formulaElem);
-      document.body.removeChild(modal);
-    });
-
-    closeButton.addEventListener('click', () => {
-      document.body.removeChild(modal);
-    });
-
-    document.body.appendChild(modal);
-  }
-
   addEventListeners(latexTag) {
     if (!latexTag.hasAttribute(InlineMathTool.EVENT_LISTENER)) {
-      latexTag.addEventListener('click', () => {
-        this.showModal(latexTag);
+      latexTag.addEventListener('click', (e) => {
+        this.stopEventPropagation(e);
+        this.renderEquationOverlay(latexTag);
       });
       latexTag.setAttribute(InlineMathTool.EVENT_LISTENER, 'true');
     }
+  }
+
+  removeEquationOverlay() {
+    const existingEquationOverlays = document.querySelectorAll('div.inline-math-equation-overlay');
+    existingEquationOverlays.forEach((equationOverlay) => {
+      equationOverlay.removeEventListener('click', this.stopEventPropagation);
+      equationOverlay.remove();
+    });
+    document.body.removeEventListener('click', this.removeEquationOverlay);
+  }
+
+  renderEquationOverlay(latexTag) {
+    if (latexTag.querySelectorAll('div.inline-math-equation-overlay').length > 0) {
+      return;
+    }
+    const equationOverlay = document.createElement('div');
+    equationOverlay.classList.add('inline-math-equation-overlay');
+    equationOverlay.addEventListener('click', this.stopEventPropagation);
+
+    this.createEquationWrapper(
+      latexTag,
+      equationOverlay,
+      latexTag.querySelector(`span.${InlineMathTool.CSS}`)?.innerHTML ?? ''
+    );
+
+    latexTag.appendChild(equationOverlay);
+    document.body.addEventListener('click', this.removeEquationOverlay);
+  }
+
+  stopEventPropagation(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  createEquationWrapper(latexTag, equationContainer, equation) {
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = 'Write LaTeX code here...';
+    textarea.value = equation;
+    textarea.classList.add('inline-math-equation-textarea-latex-tool');
+
+    textarea.onkeydown = (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.updateAndRenderLatex(latexTag, textarea, equationContainer);
+      }
+    };
+
+    const buttonsWrapper = document.createElement('div');
+    buttonsWrapper.classList.add('inline-math-button-wrapper');
+    const doneButton = document.createElement('button');
+    doneButton.innerText = 'Done ↵';
+    doneButton.classList.add('inline-math-done-button', 'inline-math-done-button-color');
+    doneButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.updateAndRenderLatex(latexTag, textarea, equationContainer);
+    };
+
+    buttonsWrapper.appendChild(doneButton);
+
+    equationContainer.appendChild(textarea);
+    equationContainer.appendChild(buttonsWrapper);
+    textarea.focus();
+  }
+
+  updateAndRenderLatex(latexTag, textarea, equationContainer) {
+    const allSpans = latexTag.querySelectorAll('span');
+    allSpans.forEach((latexSpan) => {
+      if (!latexSpan.classList.contains(InlineMathTool.CSS)) {
+        latexSpan.remove();
+      }
+    });
+    const formulaElem = document.createElement('span');
+    formulaElem.innerText = textarea.value;
+    latexTag.querySelector(`span.${InlineMathTool.CSS}`).innerText = textarea.value;
+
+    latexTag.appendChild(formulaElem);
+    this.renderFormula(formulaElem);
+    latexTag.removeChild(equationContainer);
+    document.body.removeEventListener('click', this.removeEquationOverlay);
   }
 
   addEventListenersToAll() {
