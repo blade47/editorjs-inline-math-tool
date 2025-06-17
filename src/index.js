@@ -49,11 +49,12 @@ class InlineMathTool {
     return 'LaTeX';
   }
 
-  constructor({ api, data }) {
+  constructor({ api, data, config }) {
     this.api = api;
     this.button = null;
     this.tag = 'LATEX';
     this.data = data;
+    this.config = config || {};
 
     this.iconClasses = {
       base: this.api.styles.inlineToolButton,
@@ -63,13 +64,14 @@ class InlineMathTool {
     this.updateAndRenderLatex = this.updateAndRenderLatex.bind(this);
     this.renderEquationOverlay = this.renderEquationOverlay.bind(this);
     this.removeEquationOverlay = this.removeEquationOverlay.bind(this);
+    this.repositionEquationArea = this.repositionEquationArea.bind(this);
     this.addEventListenersToAll();
   }
 
   render() {
     this.button = document.createElement('button');
     this.button.type = 'button';
-    this.button.classList.add('inline-math-latex-tool-button');
+    this.button.classList.add('inline-math-tool-button');
     this.button.classList.add(this.iconClasses.base);
 
     return this.button;
@@ -151,7 +153,7 @@ class InlineMathTool {
   }
 
   removeEquationOverlay() {
-    const existingEquationOverlays = document.querySelectorAll('div.inline-math-equation-overlay');
+    const existingEquationOverlays = document.querySelectorAll('div.inline-math-tool-overlay');
     existingEquationOverlays.forEach((equationOverlay) => {
       equationOverlay.removeEventListener('click', this.stopEventPropagation);
       equationOverlay.remove();
@@ -160,20 +162,22 @@ class InlineMathTool {
   }
 
   renderEquationOverlay(latexTag) {
-    if (latexTag.querySelectorAll('div.inline-math-equation-overlay').length > 0) {
+    if (latexTag.querySelectorAll('div.inline-math-tool-overlay').length > 0) {
       return;
     }
     const equationOverlay = document.createElement('div');
-    equationOverlay.classList.add('inline-math-equation-overlay');
+    equationOverlay.classList.add('inline-math-tool-overlay');
     equationOverlay.addEventListener('click', this.stopEventPropagation);
 
-    this.createEquationWrapper(
+    this.createEquationArea(
       latexTag,
       equationOverlay,
       latexTag.querySelector(`span.${InlineMathTool.CSS}`)?.innerHTML ?? ''
     );
 
     latexTag.appendChild(equationOverlay);
+    this.repositionEquationArea(latexTag, equationOverlay);
+    this.observeEquationOverlayResize(latexTag, equationOverlay);
     document.body.addEventListener('click', this.removeEquationOverlay);
   }
 
@@ -182,14 +186,18 @@ class InlineMathTool {
     event.stopPropagation();
   }
 
-  createEquationWrapper(latexTag, equationContainer, equation) {
+  createEquationArea(latexTag, equationContainer, equation) {
+    const textAreaWrapper = document.createElement('div');
+    textAreaWrapper.classList.add('inline-math-tool-textarea-wrapper');
+
     const textarea = document.createElement('textarea');
+    textarea.id = 'inline-math-tool-textarea';
     textarea.placeholder = 'Write LaTeX code here...';
     textarea.value = equation;
-    textarea.classList.add('inline-math-equation-textarea-latex-tool');
+    textarea.classList.add('inline-math-tool-textarea');
 
     textarea.onkeydown = (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
+      if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
         this.updateAndRenderLatex(latexTag, textarea, equationContainer);
@@ -209,7 +217,8 @@ class InlineMathTool {
 
     buttonsWrapper.appendChild(doneButton);
 
-    equationContainer.appendChild(textarea);
+    textAreaWrapper.appendChild(textarea);
+    equationContainer.appendChild(textAreaWrapper);
     equationContainer.appendChild(buttonsWrapper);
     textarea.focus();
   }
@@ -221,9 +230,10 @@ class InlineMathTool {
         latexSpan.remove();
       }
     });
+    const text = textarea.value.trim();
     const formulaElem = document.createElement('span');
-    formulaElem.innerText = textarea.value;
-    latexTag.querySelector(`span.${InlineMathTool.CSS}`).innerText = textarea.value;
+    formulaElem.innerText = text;
+    latexTag.querySelector(`span.${InlineMathTool.CSS}`).innerText = text;
 
     latexTag.appendChild(formulaElem);
     this.renderFormula(formulaElem);
@@ -235,6 +245,61 @@ class InlineMathTool {
     document.querySelectorAll(this.tag).forEach((latexTag) => {
       this.addEventListeners(latexTag);
     });
+  }
+
+  repositionEquationArea(target, overlay) {
+    const overlayRect = overlay.getBoundingClientRect();
+    const overlayHeight = overlayRect.height;
+    const maxHeight =
+      this.config.repositionOverlay?.(target, overlay) ??
+      this.repositionOverlay(target, overlay, this.config.bufferSpacing ?? 0);
+    const targetRect = target.getBoundingClientRect();
+
+    const spacing = 10;
+
+    overlay.style.top = `${top}px`;
+    overlay.style.maxHeight = `${maxHeight}px`;
+
+    const textAreaWrapper = target.querySelector('div.inline-math-tool-textarea-wrapper');
+    if (textAreaWrapper) {
+      const textAreaWrapperRect = textAreaWrapper.getBoundingClientRect();
+      textAreaWrapper.style.maxHeight = `${maxHeight * (textAreaWrapperRect.height / overlayHeight)}px`; // Adjust textarea height
+    }
+  }
+
+  repositionOverlay(target, overlay, bufferSpacing) {
+    const overlayRect = overlay.getBoundingClientRect();
+    const overlayHeight = overlayRect.height;
+    const targetRect = target.getBoundingClientRect();
+    const spacing = 10;
+
+    // Calculate available space
+    const spaceAbove = targetRect.top;
+    const spaceBelow = window.innerHeight - targetRect.bottom;
+
+    // Decide position and height
+    let top;
+    let maxHeight;
+    if (spaceBelow >= overlayHeight || spaceBelow >= spaceAbove) {
+      // Position below
+      top = targetRect.height + spacing;
+      maxHeight = spaceBelow - spacing - bufferSpacing;
+    } else {
+      // Position above
+      maxHeight = spaceAbove - spacing - bufferSpacing;
+      top = -Math.min(overlayHeight, maxHeight) - spacing;
+    }
+
+    overlay.style.top = `${top}px`;
+    overlay.style.maxHeight = `${maxHeight}px`;
+    return maxHeight;
+  }
+
+  observeEquationOverlayResize(target, overlay) {
+    const resizeObserver = new ResizeObserver(() => {
+      this.repositionEquationArea(target, overlay);
+    });
+    resizeObserver.observe(overlay);
   }
 }
 
