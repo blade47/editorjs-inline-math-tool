@@ -1,7 +1,10 @@
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { IconBrackets } from '@codexteam/icons';
 
 import './index.css';
+import { validateLaTeX } from './latexValidator';
+import { KATEX_INLINE_OPTIONS } from './katexMacros';
 
 class InlineMathTool {
   static get CSS() {
@@ -73,6 +76,7 @@ class InlineMathTool {
     this.button.type = 'button';
     this.button.classList.add('inline-math-tool-button');
     this.button.classList.add(this.iconClasses.base);
+    this.button.innerHTML = IconBrackets;
 
     return this.button;
   }
@@ -88,7 +92,7 @@ class InlineMathTool {
     const latex = fragment.querySelectorAll(`span.${InlineMathTool.CSS}`);
     if (latex.length > 1) {
       return;
-    } else if (latex.length == 0) {
+    } else if (latex.length === 0) {
       this.wrap(range);
     } else if (termWrapper) {
       this.renderEquationOverlay(termWrapper);
@@ -131,12 +135,18 @@ class InlineMathTool {
     this.button.classList.toggle(this.iconClasses.active, !!termTag);
   }
 
+  /**
+   * Renders inline LaTeX formula using KaTeX
+   *
+   * Uses inline mode (displayMode: false) to match backend rendering.
+   * Backend wraps inline math in $...$ which uses inline mode.
+   *
+   * Backend reference: LatexUtils.kt findAndReplaceInlineLatex
+   */
   renderFormula(element) {
     try {
       const formula = element.innerText || '';
-      katex.render(formula, element, {
-        throwOnError: false,
-      });
+      katex.render(formula, element, KATEX_INLINE_OPTIONS);
     } catch (error) {
       element.textContent = error.message;
     }
@@ -223,14 +233,49 @@ class InlineMathTool {
     textarea.focus();
   }
 
+  /**
+   * Updates and renders inline LaTeX with validation
+   *
+   * Validates the LaTeX code before updating to catch syntax errors early.
+   * Blocks update if critical errors are found, shows warnings for non-critical issues.
+   *
+   * Uses EditorJS notifier API for user-friendly error messages.
+   */
   updateAndRenderLatex(latexTag, textarea, equationContainer) {
+    const text = textarea.value.trim();
+
+    // Validate LaTeX code before updating
+    const validationResult = validateLaTeX(text);
+
+    // Critical errors - block update
+    if (!validationResult.isValid && validationResult.errors.length > 0) {
+      // Show each error as a notification
+      validationResult.errors.forEach((error) => {
+        this.api.notifier.show({
+          message: `LaTeX Error: ${error}`,
+          style: 'error',
+          time: 5000, // Show for 5 seconds
+        });
+      });
+
+      // Show summary notification
+      this.api.notifier.show({
+        message: `⚠️ Cannot save: ${validationResult.errors.length} LaTeX error(s) must be fixed first`,
+        style: 'error',
+        time: 6000,
+      });
+
+      // Don't update the LaTeX - keep overlay open for user to fix
+      return;
+    }
+
+    // Validation passed (errors only, warnings ignored) - proceed with update
     const allSpans = latexTag.querySelectorAll('span');
     allSpans.forEach((latexSpan) => {
       if (!latexSpan.classList.contains(InlineMathTool.CSS)) {
         latexSpan.remove();
       }
     });
-    const text = textarea.value.trim();
     const formulaElem = document.createElement('span');
     formulaElem.innerText = text;
     latexTag.querySelector(`span.${InlineMathTool.CSS}`).innerText = text;

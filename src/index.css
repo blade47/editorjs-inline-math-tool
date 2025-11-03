@@ -1,11 +1,10 @@
 .inline-math-tool-button {
-  width: 36px;
-  padding-left: 15px;
   background-color: transparent;
-  background-image: url('LaTeX_logo.svg');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 latex {
