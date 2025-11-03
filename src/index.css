@@ -1,4 +1,4 @@
-.inline-math-latex-tool-button {
+.inline-math-tool-button {
   width: 36px;
   padding-left: 15px;
   background-color: transparent;
@@ -13,35 +13,37 @@ latex {
   position: relative;
 }
 
-.inline-math-equation-textarea-latex-tool {
+.inline-math-tool-textarea-wrapper {
+  width: 100%;
+  padding: 2px;
+  overflow: auto;
+}
+
+.inline-math-tool-textarea {
   width: 100%;
   height: fit-content;
   background-color: inherit;
-  margin-top: 10px;
-  padding: 10px;
-  font-size: 16px;
+  font-size: 12px;
   border: none;
   resize: none;
   color: #dd4a68;
   field-sizing: content;
 }
 
-.inline-math-equation-textarea-latex-tool:focus {
+.inline-math-tool-textarea:focus {
   outline: none;
   box-shadow: none;
 }
 
-.inline-math-equation-overlay {
+.inline-math-tool-overlay {
   position: absolute;
   display: flex;
   align-items: flex-start;
-  top: calc(100% + 10px);
+  min-height: 50px;
   left: 0;
-  height: auto;
-  width: 400px;
   min-width: 400px;
   max-width: calc(-24px + 100vw);
-  padding: 2%;
+  padding: 10px;
   background-color: #f7f7f5;
   z-index: 1;
   word-break: break-word;
@@ -50,12 +52,12 @@ latex {
 }
 
 .inline-math-button-wrapper {
-  padding: 10px;
+  padding: 2px;
 }
 
 .inline-math-done-button {
-  padding: 10px 15px;
-  font-size: 14px;
+  padding: 6px;
+  font-size: 12px;
   border: none;
   border-radius: 6px;
   font-weight: 700;
