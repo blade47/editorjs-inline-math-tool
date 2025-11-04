@@ -127,6 +127,12 @@ class InlineMathTool {
 
     this.renderFormula(formulaElem);
     this.addEventListeners(wrapper);
+
+    // Show popup immediately for validation
+    // This ensures users validate before committing
+    setTimeout(() => {
+      this.renderEquationOverlay(wrapper);
+    }, 100);
   }
 
   checkState() {
@@ -206,23 +212,55 @@ class InlineMathTool {
     textarea.value = equation;
     textarea.classList.add('inline-math-tool-textarea');
 
+    const buttonsWrapper = document.createElement('div');
+    buttonsWrapper.classList.add('inline-math-button-wrapper');
+    const doneButton = document.createElement('button');
+    doneButton.innerText = 'Done ↵';
+    doneButton.classList.add('inline-math-done-button', 'inline-math-done-button-color');
+
+    // Validate on input and enable/disable button
+    const validateAndUpdateButton = () => {
+      const text = textarea.value.trim();
+      const validationResult = validateLaTeX(text);
+
+      if (!validationResult.isValid && validationResult.errors.length > 0) {
+        // Disable button and show errors
+        doneButton.disabled = true;
+        doneButton.style.opacity = '0.5';
+        doneButton.style.cursor = 'not-allowed';
+
+        // Show error notifications
+        validationResult.errors.forEach((error) => {
+          this.api.notifier.show({
+            message: `LaTeX Error: ${error}`,
+            style: 'error',
+            time: 5000,
+          });
+        });
+      } else {
+        // Enable button
+        doneButton.disabled = false;
+        doneButton.style.opacity = '1';
+        doneButton.style.cursor = 'pointer';
+      }
+    };
+
+    textarea.oninput = validateAndUpdateButton;
+
     textarea.onkeydown = (event) => {
-      if (event.key === 'Enter') {
+      if (event.key === 'Enter' && !doneButton.disabled) {
         event.preventDefault();
         event.stopPropagation();
         this.updateAndRenderLatex(latexTag, textarea, equationContainer);
       }
     };
 
-    const buttonsWrapper = document.createElement('div');
-    buttonsWrapper.classList.add('inline-math-button-wrapper');
-    const doneButton = document.createElement('button');
-    doneButton.innerText = 'Done ↵';
-    doneButton.classList.add('inline-math-done-button', 'inline-math-done-button-color');
     doneButton.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.updateAndRenderLatex(latexTag, textarea, equationContainer);
+      if (!doneButton.disabled) {
+        this.updateAndRenderLatex(latexTag, textarea, equationContainer);
+      }
     };
 
     buttonsWrapper.appendChild(doneButton);
@@ -231,51 +269,28 @@ class InlineMathTool {
     equationContainer.appendChild(textAreaWrapper);
     equationContainer.appendChild(buttonsWrapper);
     textarea.focus();
+
+    // Initial validation
+    validateAndUpdateButton();
   }
 
   /**
-   * Updates and renders inline LaTeX with validation
+   * Updates and renders inline LaTeX
    *
-   * Validates the LaTeX code before updating to catch syntax errors early.
-   * Blocks update if critical errors are found, shows warnings for non-critical issues.
-   *
-   * Uses EditorJS notifier API for user-friendly error messages.
+   * Note: Validation is handled by button state, so this only runs when valid
    */
   updateAndRenderLatex(latexTag, textarea, equationContainer) {
     const text = textarea.value.trim();
 
-    // Validate LaTeX code before updating
-    const validationResult = validateLaTeX(text);
-
-    // Critical errors - block update
-    if (!validationResult.isValid && validationResult.errors.length > 0) {
-      // Show each error as a notification
-      validationResult.errors.forEach((error) => {
-        this.api.notifier.show({
-          message: `LaTeX Error: ${error}`,
-          style: 'error',
-          time: 5000, // Show for 5 seconds
-        });
-      });
-
-      // Show summary notification
-      this.api.notifier.show({
-        message: `⚠️ Cannot save: ${validationResult.errors.length} LaTeX error(s) must be fixed first`,
-        style: 'error',
-        time: 6000,
-      });
-
-      // Don't update the LaTeX - keep overlay open for user to fix
-      return;
-    }
-
-    // Validation passed (errors only, warnings ignored) - proceed with update
+    // Remove old formula spans
     const allSpans = latexTag.querySelectorAll('span');
     allSpans.forEach((latexSpan) => {
       if (!latexSpan.classList.contains(InlineMathTool.CSS)) {
         latexSpan.remove();
       }
     });
+
+    // Update LaTeX source and render
     const formulaElem = document.createElement('span');
     formulaElem.innerText = text;
     latexTag.querySelector(`span.${InlineMathTool.CSS}`).innerText = text;
@@ -344,7 +359,11 @@ class InlineMathTool {
     const resizeObserver = new ResizeObserver(() => {
       this.repositionEquationArea(target, overlay);
     });
+
+    // Watch both the overlay AND the target (latex wrapper)
+    // So popup stays anchored if formula height changes
     resizeObserver.observe(overlay);
+    resizeObserver.observe(target);
   }
 }
 
